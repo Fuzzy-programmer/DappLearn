@@ -86,9 +86,7 @@ Once the frontend is running and your wallet is connected:
 This mimics how real-world DApps work.
 
 ## 🎬 Demo
-<p align="center">
-  <img src="./demo.gif" alt="DappLearn Demo" width="800"/>
-</p>
+![DappLearn Demo](./demo.gif)
 
 
 ## Documentation
@@ -106,3 +104,4 @@ This project is licensed under the **MIT License** — see the [LICENSE](LICENSE
 Feel free to open issues, submit pull requests, or suggest improvements!
 
 Happy learning 🚀
+
