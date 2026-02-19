@@ -1,6 +1,6 @@
 # DappLearn
 
-This repository demonstrates how to build a basic **Decentralized Application (DApp)** using:
+This repository demonstrates how to build a basic **Decentralized Application (DApp)** using: 
 
 - Sample smart contracts written in **Solidity**
 - A modern **frontend interface** to interact with the contracts
@@ -104,4 +104,5 @@ This project is licensed under the **MIT License** — see the [LICENSE](LICENSE
 Feel free to open issues, submit pull requests, or suggest improvements!
 
 Happy learning 🚀
+
 
