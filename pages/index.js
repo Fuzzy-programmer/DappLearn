@@ -38,7 +38,6 @@ export default function Home() {
   const [newOwner, setNewOwner] = useState("");
   const [lastEvent, setLastEvent] = useState(null);
   const [allEvents, setAllEvents] = useState([]);
-  const [wrongNetwork, setWrongNetwork] = useState(false);
 
   useEffect(() => {
     init();
@@ -57,14 +56,6 @@ export default function Home() {
     }
 
     const provider = new ethers.BrowserProvider(window.ethereum);
-    const network = await provider.getNetwork();
-
-    if (network.chainId !== 11155111n) {
-      setWrongNetwork(true);
-      return;
-    }
-
-    setWrongNetwork(false);
 
     await provider.send("eth_requestAccounts", []);
     const signer = await provider.getSigner();
@@ -78,17 +69,6 @@ export default function Home() {
     setContract(contractInstance);
   }
 
-  // 🔁 Switch Network
-  async function switchToSepolia() {
-    try {
-      await window.ethereum.request({
-        method: "wallet_switchEthereumChain",
-        params: [{ chainId: "0xaa36a7" }]
-      });
-    } catch (err) {
-      toast.error("Failed to switch network");
-    }
-  }
 
   // 🧠 Extract error message
   function getErrorMessage(err) {
@@ -191,20 +171,11 @@ export default function Home() {
   return (
     <div style={styles.container}>
       <div style={styles.card}>
-        <h2>👑 Owner DApp</h2>
-
-        {wrongNetwork && (
-          <div style={styles.warning}>
-            <p>⚠️ Wrong Network</p>
-            <button style={styles.btn} onClick={switchToSepolia}>
-              Switch to Sepolia
-            </button>
-          </div>
-        )}
+        <h2>W Owner DApp</h2>
 
         {/* OWNER */}
         <div style={styles.section}>
-          <button style={styles.btn} onClick={getOwner} disabled={wrongNetwork}>
+          <button style={styles.btn} onClick={getOwner}>
             Get Owner
           </button>
           <p style={styles.value}>{owner || "—"}</p>
@@ -216,12 +187,10 @@ export default function Home() {
             style={styles.input}
             placeholder="New Owner Address"
             onChange={(e) => setNewOwner(e.target.value)}
-            disabled={wrongNetwork}
           />
           <button
             style={styles.btn}
             onClick={changeOwner}
-            disabled={wrongNetwork}
           >
             Change Owner
           </button>
@@ -233,7 +202,6 @@ export default function Home() {
           <button
             style={styles.outline}
             onClick={getLastEvent}
-            disabled={wrongNetwork}
           >
             Get Last Event
           </button>
@@ -255,7 +223,6 @@ export default function Home() {
           <button
             style={styles.outline}
             onClick={loadAllEvents}
-            disabled={wrongNetwork}
           >
             Load All Events
           </button>
