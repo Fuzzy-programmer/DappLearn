@@ -34,10 +34,12 @@ const abi = [
 
 export default function Home() {
   const [contract, setContract] = useState(null);
+  const [provider, setProvider] = useState(null);
   const [owner, setOwner] = useState("");
   const [newOwner, setNewOwner] = useState("");
   const [lastEvent, setLastEvent] = useState(null);
   const [allEvents, setAllEvents] = useState([]);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     init();
@@ -56,7 +58,6 @@ export default function Home() {
     }
 
     const provider = new ethers.BrowserProvider(window.ethereum);
-
     await provider.send("eth_requestAccounts", []);
     const signer = await provider.getSigner();
 
@@ -66,11 +67,10 @@ export default function Home() {
       signer
     );
 
+    setProvider(provider);
     setContract(contractInstance);
   }
 
-
-  // 🧠 Extract error message
   function getErrorMessage(err) {
     if (!err) return "Unknown error";
     return (
@@ -82,7 +82,6 @@ export default function Home() {
     );
   }
 
-  // 👑 Get Owner
   async function getOwner() {
     if (!contract) return;
     try {
@@ -94,14 +93,16 @@ export default function Home() {
     }
   }
 
-  // 🔁 Change Owner
   async function changeOwner() {
-    if (!contract || !newOwner) {
-      toast.error("Enter valid address");
+    if (!contract) return;
+
+    if (!ethers.isAddress(newOwner)) {
+      toast.error("Invalid address");
       return;
     }
 
     try {
+      setLoading(true);
       const tx = await contract.changeOwner(newOwner);
 
       toast.loading("Transaction pending...", { id: "tx" });
@@ -111,20 +112,22 @@ export default function Home() {
       toast.success("Owner updated!", { id: "tx" });
 
       getOwner();
-
     } catch (err) {
-      console.log(err);
       toast.error(getErrorMessage(err), { id: "tx" });
+    } finally {
+      setLoading(false);
     }
   }
 
-  // 🔴 Last Event
   async function getLastEvent() {
-    if (!contract) return;
+    if (!contract || !provider) return;
 
     try {
       const filter = contract.filters.OwnerSet();
-      const logs = await contract.queryFilter(filter, -5000);
+      const latestBlock = await provider.getBlockNumber();
+      const fromBlock = Math.max(latestBlock - 5000, 0);
+
+      const logs = await contract.queryFilter(filter, fromBlock, latestBlock);
 
       if (logs.length === 0) {
         toast("No events found");
@@ -136,33 +139,31 @@ export default function Home() {
       setLastEvent({
         oldOwner: last.args.oldOwner,
         newOwner: last.args.newOwner,
-        tx: last.transactionHash
       });
 
       toast.success("Last event loaded");
-
     } catch (err) {
       toast.error(getErrorMessage(err));
     }
   }
 
-  // 📜 All Events
   async function loadAllEvents() {
-    if (!contract) return;
+    if (!contract || !provider) return;
 
     try {
       const filter = contract.filters.OwnerSet();
-      const logs = await contract.queryFilter(filter, -5000);
+      const latestBlock = await provider.getBlockNumber();
+      const fromBlock = Math.max(latestBlock - 5000, 0);
+
+      const logs = await contract.queryFilter(filter, fromBlock, latestBlock);
 
       const parsed = logs.map(log => ({
         oldOwner: log.args.oldOwner,
         newOwner: log.args.newOwner,
-        tx: log.transactionHash
       }));
 
       setAllEvents(parsed.reverse());
       toast.success("Events loaded");
-
     } catch (err) {
       toast.error(getErrorMessage(err));
     }
@@ -171,7 +172,7 @@ export default function Home() {
   return (
     <div style={styles.container}>
       <div style={styles.card}>
-        <h2>W Owner DApp</h2>
+        <h2 style={styles.title}>Owner DApp 👑</h2>
 
         {/* OWNER */}
         <div style={styles.section}>
@@ -186,23 +187,25 @@ export default function Home() {
           <input
             style={styles.input}
             placeholder="New Owner Address"
+            value={newOwner}
             onChange={(e) => setNewOwner(e.target.value)}
           />
           <button
-            style={styles.btn}
+            style={{
+              ...styles.btn,
+              ...(loading ? styles.btnDisabled : {})
+            }}
+            disabled={loading}
             onClick={changeOwner}
           >
-            Change Owner
+            {loading ? "Processing..." : "Change Owner"}
           </button>
         </div>
 
         {/* LAST EVENT */}
         <div style={styles.section}>
           <h3>🔴 Last Event</h3>
-          <button
-            style={styles.outline}
-            onClick={getLastEvent}
-          >
+          <button style={styles.outline} onClick={getLastEvent}>
             Get Last Event
           </button>
 
@@ -210,9 +213,6 @@ export default function Home() {
             <div style={styles.eventBox}>
               <p><b>Old:</b> {lastEvent.oldOwner}</p>
               <p><b>New:</b> {lastEvent.newOwner}</p>
-              <a href={`https://sepolia.etherscan.io/tx/${lastEvent.tx}`} target="_blank">
-                View Tx
-              </a>
             </div>
           )}
         </div>
@@ -220,10 +220,7 @@ export default function Home() {
         {/* ALL EVENTS */}
         <div style={styles.section}>
           <h3>📜 All Events</h3>
-          <button
-            style={styles.outline}
-            onClick={loadAllEvents}
-          >
+          <button style={styles.outline} onClick={loadAllEvents}>
             Load All Events
           </button>
 
@@ -232,76 +229,106 @@ export default function Home() {
               <div key={i} style={styles.eventBox}>
                 <p><b>Old:</b> {e.oldOwner}</p>
                 <p><b>New:</b> {e.newOwner}</p>
-                <a href={`https://sepolia.etherscan.io/tx/${e.tx}`} target="_blank">
-                  View Tx
-                </a>
               </div>
             ))}
           </div>
         </div>
-
       </div>
     </div>
   );
 }
 
-// 🎨 STYLES
 const styles = {
   container: {
-    height: "100vh",
+    minHeight: "100dvh", // responsive viewport height
     display: "flex",
     justifyContent: "center",
     alignItems: "center",
+    padding: "20px",
     background: "linear-gradient(135deg, #0f2027, #203a43, #2c5364)"
   },
+
   card: {
-    background: "rgba(255,255,255,0.1)",
-    padding: "30px",
-    borderRadius: "20px",
-    width: "420px",
+    background: "rgba(255,255,255,0.08)",
+    padding: "35px",
+    borderRadius: "24px",
+    width: "100%",
+    maxWidth: "480px",
     color: "white",
-    backdropFilter: "blur(20px)"
+    backdropFilter: "blur(25px)",
+    boxShadow: "0 25px 50px rgba(0,0,0,0.4)",
+    border: "1px solid rgba(255,255,255,0.1)",
   },
-  section: { marginBottom: "20px" },
+
+  title: {
+    textAlign: "center",
+    marginBottom: "25px",
+    fontSize: "26px",
+    fontWeight: "600",
+    letterSpacing: "1px",
+  },
+
+  section: {
+    marginBottom: "25px",
+  },
+
   input: {
     width: "100%",
-    padding: "10px",
-    borderRadius: "10px",
+    padding: "12px",
+    borderRadius: "12px",
     border: "none",
-    marginBottom: "10px"
+    marginBottom: "12px",
+    fontSize: "14px",
+    outline: "none",
   },
+
   btn: {
     width: "100%",
-    padding: "10px",
-    borderRadius: "10px",
+    padding: "12px",
+    borderRadius: "12px",
     border: "none",
-    background: "#00c6ff",
-    cursor: "pointer"
+    background: "linear-gradient(90deg,#00c6ff,#0072ff)",
+    color: "white",
+    fontWeight: "600",
+    cursor: "pointer",
   },
+
+  btnDisabled: {
+    opacity: 0.6,
+    cursor: "not-allowed",
+  },
+
   outline: {
     width: "100%",
-    padding: "10px",
-    borderRadius: "10px",
+    padding: "12px",
+    borderRadius: "12px",
     border: "1px solid #00c6ff",
     background: "transparent",
     color: "#00c6ff",
-    cursor: "pointer"
+    fontWeight: "600",
+    cursor: "pointer",
   },
-  warning: {
-    background: "rgba(255,0,0,0.2)",
+
+  value: {
+    marginTop: "10px",
+    wordBreak: "break-all",
+    background: "rgba(255,255,255,0.08)",
     padding: "10px",
     borderRadius: "10px",
-    marginBottom: "15px"
   },
-  value: { wordBreak: "break-all" },
+
   eventBox: {
-    background: "rgba(255,255,255,0.1)",
-    padding: "10px",
-    marginTop: "10px",
-    borderRadius: "10px"
+    background: "rgba(255,255,255,0.07)",
+    padding: "12px",
+    marginTop: "12px",
+    borderRadius: "12px",
+    fontSize: "13px",
+    border: "1px solid rgba(255,255,255,0.05)",
   },
+
   scroll: {
-    maxHeight: "200px",
-    overflowY: "auto"
-  }
+    maxHeight: "220px",
+    overflowY: "auto",
+    marginTop: "10px",
+  },
 };
